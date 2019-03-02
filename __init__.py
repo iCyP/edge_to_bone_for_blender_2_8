@@ -84,6 +84,7 @@ class ICYP_OT_edge_to_bone(bpy.types.Operator):
             
         context.scene.update()
         bpy.ops.object.mode_set(mode='OBJECT')
+        context.scene.update()
         armature.scale = mesh_obj.scale
 
         context.view_layer.objects.active = mesh_obj
