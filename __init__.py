@@ -47,8 +47,13 @@ class ICYP_OT_edge_to_bone(bpy.types.Operator):
             base_edge = selected_edges.pop()
             group_edges_list.append(edge_union(base_edge,[base_edge]))
 
+        if self.reverse:
+            for group_edges in group_edges_list:
+                group_edges.reverse()
         edge_point_list = [[[vert.co for vert in edge.verts] for edge in group_edges[::self.skip+1]] for group_edges in group_edges_list]
-
+        if self.reverse:
+            for group_edges in group_edges_list:
+                group_edges.reverse()
         bpy.ops.object.mode_set(mode='OBJECT')
         bpy.ops.object.add(type='ARMATURE', enter_editmode=True, location=mesh_obj.location,rotation=[xyz for xyz in mesh_obj.rotation_euler])
         armature = context.object
@@ -60,7 +65,7 @@ class ICYP_OT_edge_to_bone(bpy.types.Operator):
             while edge_group:
                 edge = edge_group.pop()
                 b = armature.data.edit_bones.new("bone")
-                if self.reverse:
+                if not self.reverse:
                     b.head = edge[0]
                     b.tail = edge[1]
                     if isFirst:
@@ -74,7 +79,7 @@ class ICYP_OT_edge_to_bone(bpy.types.Operator):
                     if isFirst:
                         isFirst = False
                     else:
-                        b.parent = last_bone
+                        last_bone.parent = b
                     last_bone = b
             
         context.scene.update()
