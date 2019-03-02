@@ -23,6 +23,7 @@ class ICYP_OT_edge_to_bone(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
     
     reverse : bpy.props.BoolProperty(default = False)
+    skip : bpy.props.IntProperty(default = 0)
 
     def execute(self,context):   
         mesh_obj = context.active_object
@@ -46,7 +47,7 @@ class ICYP_OT_edge_to_bone(bpy.types.Operator):
             base_edge = selected_edges.pop()
             group_edges_list.append(edge_union(base_edge,[base_edge]))
 
-        edge_point_list = [[[vert.co for vert in edge.verts] for edge in group_edges] for group_edges in group_edges_list]
+        edge_point_list = [[[vert.co for vert in edge.verts] for edge in group_edges[::self.skip+1]] for group_edges in group_edges_list]
 
         bpy.ops.object.mode_set(mode='OBJECT')
         bpy.ops.object.add(type='ARMATURE', enter_editmode=True, location=mesh_obj.location,rotation=[xyz for xyz in mesh_obj.rotation_euler])
