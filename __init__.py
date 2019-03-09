@@ -24,69 +24,126 @@ class ICYP_OT_edge_to_bone(bpy.types.Operator):
     
     reverse : bpy.props.BoolProperty(default = False)
     skip : bpy.props.IntProperty(default = 0)
-
+    with_auto_weight : bpy.props.BoolProperty(default = False)
     def execute(self,context):   
         mesh_obj = context.active_object
         bm = bmesh.from_edit_mesh(mesh_obj.data)
         #region fetch selected edge
-        selected_edges = [edge for edge in bm.edges if edge.select]
-        group_edges_list = []
-        def edge_union(edge,edge_group):
-            for i,vert in enumerate(edge.verts):
-                for link_edge in vert.link_edges: 
-                    if link_edge in selected_edges:
-                        selected_edges.remove(link_edge)
-                        if i == 0:
-                            edge_group.insert(0,link_edge)
-                        else:
-                            edge_group.append(link_edge)
-                        edge_union(link_edge,edge_group)
-            return edge_group
+        selected_verts = [v for v in bm.verts if v.select]
+        group_verts_list = []
+        #TODO FIX
+        def vert_union(vert,vert_array,direction):
+            selected_link_verts = [v for link_edge in vert.link_edges for v in link_edge.verts if v.index != vert.index and v in selected_verts]
+            for sv in selected_link_verts:
+                selected_verts.remove(sv)
+            for i,v in enumerate(selected_link_verts):
+                if direction is None:
+                    if i == 0:
+                        vert_array.insert(0,v)
+                        vert_union(v,vert_array,True)
+                    else:
+                        vert_array.append(v)
+                        vert_union(v,vert_array,False)  
+                elif direction == True:
+                    vert_array.insert(0,v)
+                    vert_union(v,vert_array,direction)
+                else:
+                    vert_array.append(v)
+                    vert_union(v,vert_array,direction)                   
+            return vert_array
 
-        while len(selected_edges) > 0:
-            base_edge = selected_edges.pop()
-            group_edges_list.append(edge_union(base_edge,[base_edge]))
+        while len(selected_verts) > 0:
+            base_vert = selected_verts.pop()
+            group_verts_list.append(vert_union(base_vert,[base_vert],None))
 
         if self.reverse:
-            for group_edges in group_edges_list:
-                group_edges.reverse()
-        edge_point_list = [[[vert.co for vert in edge.verts] for edge in group_edges[::self.skip+1]] for group_edges in group_edges_list]
-        if self.reverse:
-            for group_edges in group_edges_list:
-                group_edges.reverse()
+            for group_verts in group_verts_list:
+                group_verts.reverse()
+        edge_points_list = [[(vert.co,vert.index)  for vert in group_verts[::self.skip+1]] for group_verts in group_verts_list]
+
+        
+        #make armature
         bpy.ops.object.mode_set(mode='OBJECT')
         bpy.ops.object.add(type='ARMATURE', enter_editmode=True, location=mesh_obj.location,rotation=[xyz for xyz in mesh_obj.rotation_euler])
-        armature = context.object
+        armature = bpy.context.object
         armature.name = "bones"
         armature.show_in_front = True
-        for edge_group in edge_point_list:
+        vert_id_bone_name_unionflag_tuple_list = []
+        for point_tuples in edge_points_list:
             last_bone = None
+            head = point_tuples.pop()
             isFirst = True
-            while edge_group:
-                edge = edge_group.pop()
+            vert_indexies = [id for _,id in point_tuples]
+            bone_names = []
+            while len(point_tuples)>=1:
+                tail = point_tuples.pop()
                 b = armature.data.edit_bones.new("bone")
-                if not self.reverse:
-                    b.head = edge[0]
-                    b.tail = edge[1]
-                    if isFirst:
-                        isFirst = False
-                    else:
-                        last_bone.parent = b
-                    last_bone = b
+                bone_names.append(b.name)
+                b.head = head[0]
+                b.tail = tail[0]
+                if isFirst:
+                    isFirst = False
                 else:
-                    b.head = edge[1]
-                    b.tail = edge[0]
-                    if isFirst:
-                        isFirst = False
-                    else:
-                        last_bone.parent = b
-                    last_bone = b
+                    b.parent = last_bone
+                last_bone = b
+                head = tail[:]
+            vert_id_bone_name_unionflag_tuple_list.append([vert_indexies,bone_names,False])
             
-        context.scene.update()
         bpy.ops.object.mode_set(mode='OBJECT')
-        context.scene.update()
+        bpy.context.object.update_from_editmode()
         armature.scale = mesh_obj.scale
+        mesh_obj.modifiers.new("auto_arm","ARMATURE").object = armature
+        
 
+        #auto weight
+        if self.with_auto_weight:
+            mesh_obj = bpy.data.objects[mesh_obj.name]
+            for i,vert_id_bone_name_tuple in enumerate(vert_id_bone_name_unionflag_tuple_list):
+                vert_ids,bone_names,already_unioned = vert_id_bone_name_tuple
+                #mesh select
+                context.view_layer.objects.active = mesh_obj
+                bpy.ops.object.mode_set(mode='EDIT')
+                bpy.ops.mesh.select_all(action="DESELECT")
+                if already_unioned:
+                    continue
+                for vid in vert_ids:
+                    mesh_obj.data.vertices[vid].select = True
+                bpy.ops.mesh.select_linked()
+                selected_verts = [vert.index for vert in mesh_obj.data.vertices if vert.select]
+                same_group = []
+                for i,vibnt in enumerate(vert_id_bone_name_unionflag_tuple_list):
+                    vids,bnames,already_union = vibnt
+                    if already_union:
+                        continue
+                    for vid in vids:
+                        if vid in selected_verts:
+                            same_group.append((vids,bone_names))
+                            vert_id_bone_name_unionflag_tuple_list[i][2] = True
+                            break
+                for vids,_ in same_group:
+                    for vid in vids:
+                        mesh_obj.data.vertices[vid].select = True
+                bpy.ops.mesh.select_linked()
+                #bone select
+                bpy.ops.object.mode_set(mode='OBJECT')
+                context.view_layer.objects.active = armature
+                bpy.ops.object.mode_set(mode='POSE')
+                bpy.ops.pose.select_all(action = "DESELECT")
+                for bone_name in bone_names:
+                    armature.data.bones[bone_name].select = True
+                for _,link_bone_names,_ in vert_id_bone_name_unionflag_tuple_list:       
+                    for bone_name in link_bone_names:
+                        armature.data.bones[bone_name].select = True
+                #weight paint
+                bpy.ops.object.mode_set(mode='OBJECT')
+                bpy.context.scene.update()
+                bpy.data.objects[armature.name].select_set(True)
+                bpy.context.view_layer.objects.active = mesh_obj
+                bpy.ops.object.mode_set(mode='WEIGHT_PAINT')
+                bpy.ops.paint.weight_from_bones()
+                bpy.ops.object.mode_set(mode='OBJECT')
+
+        bpy.ops.object.mode_set(mode='OBJECT')
         context.view_layer.objects.active = mesh_obj
         bpy.ops.object.mode_set(mode='EDIT')
 
