@@ -60,7 +60,8 @@ class ICYP_OT_edge_to_bone(bpy.types.Operator):
         if self.reverse:
             for group_verts in group_verts_list:
                 group_verts.reverse()
-        edge_points_list = [[(vert.co[:],vert.index)  for vert in group_verts[::self.skip+1]] for group_verts in group_verts_list]
+        #coは参照になるからコピーしないと落ちる
+        edge_points_list = [[(vert.co[:],vert.index)  for vert in group_verts[0::self.skip+1]] for group_verts in group_verts_list]
 
         
         #make armature
@@ -78,14 +79,14 @@ class ICYP_OT_edge_to_bone(bpy.types.Operator):
         else :
             root_bone = None
 
-        for point_tuples in edge_points_list:
+        for point_pos_id_tuples in edge_points_list:
             last_bone = None
-            head = point_tuples.pop()
+            head = point_pos_id_tuples.pop(0)
             isFirst = True
-            vert_indexies = [id for _,id in point_tuples]
+            vert_indexies = [id for _,id in point_pos_id_tuples]
             bone_names = []
-            while len(point_tuples)>=1:
-                tail = point_tuples.pop()
+            while len(point_pos_id_tuples)>=1:
+                tail = point_pos_id_tuples.pop(0)
                 b = armature.data.edit_bones.new("bone")
                 bone_names.append(b.name)
                 b.head = head[0]
@@ -137,7 +138,8 @@ class ICYP_OT_edge_to_bone(bpy.types.Operator):
                 bpy.ops.mesh.select_linked()
                 #bone select
                 bpy.ops.object.mode_set(mode='OBJECT')
-                context.view_layer.objects.active = armature
+                context.view_layer.objects.active = bpy.data.objects[armature.name]
+                armature = bpy.data.objects[armature.name]
                 bpy.ops.object.mode_set(mode='POSE')
                 bpy.ops.pose.select_all(action = "DESELECT")
                 for bone_name in bone_names:
@@ -151,6 +153,7 @@ class ICYP_OT_edge_to_bone(bpy.types.Operator):
                 bpy.ops.object.mode_set(mode='OBJECT')
                 bpy.context.scene.update()
                 bpy.data.objects[armature.name].select_set(True)
+                bpy.data.objects[mesh_obj.name].select_set(True)
                 bpy.context.view_layer.objects.active = mesh_obj
                 bpy.ops.object.mode_set(mode='WEIGHT_PAINT')
                 bpy.ops.paint.weight_from_bones()
