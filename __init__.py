@@ -24,6 +24,7 @@ class ICYP_OT_edge_to_bone(bpy.types.Operator):
     
     reverse : bpy.props.BoolProperty(default = False)
     skip : bpy.props.IntProperty(default = 0)
+    with_root_bone : bpy.props.BoolProperty(default = False)
     with_auto_weight : bpy.props.BoolProperty(default = False)
     def execute(self,context):   
         mesh_obj = context.active_object
@@ -69,6 +70,14 @@ class ICYP_OT_edge_to_bone(bpy.types.Operator):
         armature.name = "bones"
         armature.show_in_front = True
         vert_id_bone_name_unionflag_tuple_list = []
+        
+        if self.with_root_bone:
+            root_bone = armature.data.edit_bones.new("root")
+            root_bone.head = [0,0,0]
+            root_bone.tail = [0,0,0.1]
+        else :
+            root_bone = None
+
         for point_tuples in edge_points_list:
             last_bone = None
             head = point_tuples.pop()
@@ -83,6 +92,8 @@ class ICYP_OT_edge_to_bone(bpy.types.Operator):
                 b.tail = tail[0]
                 if isFirst:
                     isFirst = False
+                    if self.with_root_bone:
+                        b.parent = root_bone
                 else:
                     b.parent = last_bone
                 last_bone = b
@@ -134,6 +145,8 @@ class ICYP_OT_edge_to_bone(bpy.types.Operator):
                 for _,link_bone_names,_ in vert_id_bone_name_unionflag_tuple_list:       
                     for bone_name in link_bone_names:
                         armature.data.bones[bone_name].select = True
+                if root_bone is not None:
+                    armature.data.bones[root_bone.name].select = False
                 #weight paint
                 bpy.ops.object.mode_set(mode='OBJECT')
                 bpy.context.scene.update()
