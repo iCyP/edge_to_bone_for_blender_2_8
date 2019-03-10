@@ -60,7 +60,7 @@ class ICYP_OT_edge_to_bone(bpy.types.Operator):
         if self.reverse:
             for group_verts in group_verts_list:
                 group_verts.reverse()
-        edge_points_list = [[(vert.co,vert.index)  for vert in group_verts[::self.skip+1]] for group_verts in group_verts_list]
+        edge_points_list = [[(vert.co[:],vert.index)  for vert in group_verts[::self.skip+1]] for group_verts in group_verts_list]
 
         
         #make armature
