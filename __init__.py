@@ -110,11 +110,13 @@ class ICYP_OT_edge_to_bone(bpy.types.Operator):
                 already_sampled_verts.extend(group_verts)
                 ring_a = get_next_ring(group_verts[0])
                 ring_b = get_next_ring(group_verts[0])
-                rings.append(ring_b)
+                if ring_a is not None:
+                    rings.append(ring_b)
                 rings.append(group_verts)
-                rings.append(ring_a)
+                if ring_b is not None:
+                    rings.append(ring_a)
 
-                if len(ring_a)!=0:
+                if ring_a is not None:
                     sub_rings= [ring_a]
                     while sub_rings:
                         sub_ring = sub_rings.pop()
@@ -122,11 +124,8 @@ class ICYP_OT_edge_to_bone(bpy.types.Operator):
                         if next_ring is not None:
                             sub_rings.append(next_ring)
                             rings.append(next_ring)
-                            print("a")
-                        else:
-                            print("W")
 
-                if len(ring_b)!=0:
+                if ring_b is not None:
                     sub_rings = [ring_b]
                     while sub_rings:
                         sub_ring = sub_rings.pop()
@@ -134,9 +133,6 @@ class ICYP_OT_edge_to_bone(bpy.types.Operator):
                         if next_ring is not None:
                             sub_rings.append(next_ring)
                             rings.insert(0,next_ring)
-                            print("b")
-                        else:
-                            print("L")
 
                 points = [[],[]]
                 for ring in rings :
