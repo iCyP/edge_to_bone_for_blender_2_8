@@ -197,7 +197,7 @@ class ICYP_OT_edge_to_bone(bpy.types.Operator):
             
         bpy.ops.object.mode_set(mode='OBJECT')
         bpy.context.object.update_from_editmode()
-        armature.scale = mesh_obj.scale
+        armature.scale = mesh_obj.scale[:]
         mesh_obj.modifiers.new("auto_arm","ARMATURE").object = armature
         
 
@@ -253,6 +253,9 @@ class ICYP_OT_edge_to_bone(bpy.types.Operator):
                 bpy.ops.paint.weight_from_bones()
                 bpy.ops.object.mode_set(mode='OBJECT')
 
+        bpy.ops.object.mode_set(mode='OBJECT')
+        context.view_layer.objects.active = armature
+        bpy.ops.object.mode_set(mode='EDIT')
         bpy.ops.object.mode_set(mode='OBJECT')
         context.view_layer.objects.active = mesh_obj
         bpy.ops.object.mode_set(mode='EDIT')
