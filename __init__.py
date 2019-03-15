@@ -22,6 +22,7 @@ class ICYP_OT_edge_to_bone(bpy.types.Operator):
     bl_description = "-------"
     bl_options = {'REGISTER', 'UNDO'}
     
+    by_ring_select : bpy.props.BoolProperty(default = False)
     reverse : bpy.props.BoolProperty(default = False)
     skip : bpy.props.IntProperty(default = 0)
     with_root_bone : bpy.props.BoolProperty(default = False)
@@ -32,7 +33,6 @@ class ICYP_OT_edge_to_bone(bpy.types.Operator):
         #region fetch selected edge
         selected_verts = [v for v in bm.verts if v.select]
         group_verts_list = []
-        #TODO FIX
         def vert_union(vert,vert_array,direction):
             selected_link_verts = [v for link_edge in vert.link_edges for v in link_edge.verts if v.index != vert.index and v in selected_verts]
             for sv in selected_link_verts:
@@ -56,12 +56,95 @@ class ICYP_OT_edge_to_bone(bpy.types.Operator):
         while len(selected_verts) > 0:
             base_vert = selected_verts.pop()
             group_verts_list.append(vert_union(base_vert,[base_vert],None))
+        #endregion fetch selected edge
 
-        if self.reverse:
+        #test func
+        def empty_test(loc):
+            o = bpy.data.objects.new(name="",object_data = None)
+            bpy.context.collection.objects.link(o)
+            o.location = loc
+            o.show_name = True
+
+        edge_points_list = []
+        #TODO 実装
+        if self.by_ring_select:
+            ring_to_points = []
+            already_sampled_verts = []
+            def next_vert(vert,isFirst):
+                verts = []
+                for link_edge in vert.link_edges:
+                    for v in link_edge.verts:
+                        if v not in already_sampled_verts:
+                            already_sampled_verts.append(v)
+                            if not isFirst:
+                                return v
+                            else:
+                                verts.append(v)
+                return verts if len(verts) != 0 else None
+
+            points_list = []
             for group_verts in group_verts_list:
-                group_verts.reverse()
-        #coは参照になるからコピーしないと落ちる
-        edge_points_list = [[(vert.co[:],vert.index)  for vert in group_verts[0::self.skip+1]] for group_verts in group_verts_list]
+                rings = []
+                already_sampled_verts += group_verts
+                ring_a = []
+                ring_b = []
+                for vert in group_verts:
+                    a = next_vert(vert,True)
+                    if a is not None:
+                        ring_a.append(a[0])
+                        ring_b.append(a[1])
+
+                rings.append(ring_b)
+                rings.append(group_verts)
+                rings.append(ring_a)
+                
+                #TODO 以下実装
+                if len(ring_a)!=0:
+                    sub_rings= [ring_a]
+                    while sub_rings:
+                        ring = []
+                        for vert in sub_rings.pop():
+                            if vert is not None:
+                                v = next_vert(vert,False)
+                                if v is not None :
+                                    ring.append(v)
+                        if len(ring):
+                            sub_rings.append(ring)
+                            rings.append(ring)
+
+                if len(ring_b)!=0:
+                    sub_rings = [ring_b]
+                    while sub_rings:
+                        ring = []
+                        for vert in sub_rings.pop():
+                            if vert is not None:
+                                v = next_vert(vert,False)
+                                if v is not None:
+                                    ring.append(v)
+                        if len(ring):
+                            sub_rings.append(ring)
+                            rings.insert(0,ring)
+                points = [[],[]]
+                for ring in rings :
+                    average_loc = [0,0,0]
+                    for vert in [v for v in ring if v is not None]:
+                        average_loc = [average_loc[i]+vert.co[i] for i in range(3)]
+                    average_loc = [average_loc[i]/len(ring) for i in range(3)]
+                    points[0].append(average_loc)
+                    points[1] = [v.index for v in ring if v is not None]
+                points_list.append(points)
+
+            if self.reverse:
+                for points in points_list:
+                    points[0].reverse()
+            edge_points_list = [[(point,points[1]) for point in points[0][0::self.skip+1]] for points in points_list]
+
+        else:
+            if self.reverse:
+                for group_verts in group_verts_list:
+                    group_verts.reverse()
+            #coは参照になるからコピーしないと落ちる
+            edge_points_list = [[(vert.co[:],(vert.index,))  for vert in group_verts[0::self.skip+1]] for group_verts in group_verts_list]
 
         
         #make armature
@@ -83,7 +166,7 @@ class ICYP_OT_edge_to_bone(bpy.types.Operator):
             last_bone = None
             head = point_pos_id_tuples.pop(0)
             isFirst = True
-            vert_indexies = [id for _,id in point_pos_id_tuples]
+            vert_indexies = [id for _,ids in point_pos_id_tuples for id in ids]
             bone_names = []
             while len(point_pos_id_tuples)>=1:
                 tail = point_pos_id_tuples.pop(0)
