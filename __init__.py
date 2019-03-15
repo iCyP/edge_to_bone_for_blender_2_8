@@ -129,7 +129,8 @@ class ICYP_OT_edge_to_bone(bpy.types.Operator):
                     average_loc = [0,0,0]
                     for vert in [v for v in ring if v is not None]:
                         average_loc = [average_loc[i]+vert.co[i] for i in range(3)]
-                    average_loc = [average_loc[i]/len(ring) for i in range(3)]
+                    sum_n = len(ring) if len(ring)!=0 else 1
+                    average_loc = [average_loc[i]/sum_n for i in range(3)]
                     points[0].append(average_loc)
                     points[1] = [v.index for v in ring if v is not None]
                 points_list.append(points)
