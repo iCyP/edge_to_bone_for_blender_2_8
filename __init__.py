@@ -58,72 +58,86 @@ class ICYP_OT_edge_to_bone(bpy.types.Operator):
             group_verts_list.append(vert_union(base_vert,[base_vert],None))
         #endregion fetch selected edge
 
-        #test func
-        def empty_test(loc):
+        #debug func
+        def empty_test(loc,i=0):
             o = bpy.data.objects.new(name="",object_data = None)
             bpy.context.collection.objects.link(o)
             o.location = loc
             o.show_name = True
+            o.empty_display_size = 0.1
+            o.empty_display_type = ('PLAIN_AXES', 'ARROWS', 'SINGLE_ARROW', 'CIRCLE', 'CUBE', 'SPHERE', 'CONE', 'IMAGE')[i]
+
 
         edge_points_list = []
         #TODO 実装
         if self.by_ring_select:
-            ring_to_points = []
+            
+            def link_verts(vert):
+                return [lv for le in vert.link_edges for lv in le.verts]
+
             already_sampled_verts = []
-            def next_vert(vert,isFirst):
-                verts = []
-                for link_edge in vert.link_edges:
-                    for v in link_edge.verts:
+            def get_next_ring(vert):
+                next_ring = []
+                current_vert = None
+                for v in link_verts(vert):
+                    if v not in already_sampled_verts:
+                        next_ring.append(v)
+                        current_vert = v
+                        break
+                while current_vert is not None:
+                    for v in link_verts(current_vert):
                         if v not in already_sampled_verts:
-                            already_sampled_verts.append(v)
-                            if not isFirst:
-                                return v
+                            is_ring = False
+                            if v not in next_ring:
+                                for lv in link_verts(v):
+                                    if lv in already_sampled_verts:
+                                        next_ring.append(v)
+                                        current_vert = v
+                                        is_ring = True
+                                        break
+                            if not is_ring:
+                                current_vert = None
                             else:
-                                verts.append(v)
-                return verts if len(verts) != 0 else None
+                                break
+
+                already_sampled_verts.extend(next_ring)
+                return next_ring if len(next_ring)>0 else None
+                                    
 
             points_list = []
             for group_verts in group_verts_list:
                 rings = []
-                already_sampled_verts += group_verts
-                ring_a = []
-                ring_b = []
-                for vert in group_verts:
-                    a = next_vert(vert,True)
-                    if a is not None:
-                        ring_a.append(a[0])
-                        ring_b.append(a[1])
-
+                already_sampled_verts.extend(group_verts)
+                ring_a = get_next_ring(group_verts[0])
+                ring_b = get_next_ring(group_verts[0])
                 rings.append(ring_b)
                 rings.append(group_verts)
                 rings.append(ring_a)
-                
-                #TODO 以下実装
+
                 if len(ring_a)!=0:
                     sub_rings= [ring_a]
                     while sub_rings:
-                        ring = []
-                        for vert in sub_rings.pop():
-                            if vert is not None:
-                                v = next_vert(vert,False)
-                                if v is not None :
-                                    ring.append(v)
-                        if len(ring):
-                            sub_rings.append(ring)
-                            rings.append(ring)
+                        sub_ring = sub_rings.pop()
+                        next_ring = get_next_ring(sub_ring[0]) if len(sub_ring) else None
+                        if next_ring is not None:
+                            sub_rings.append(next_ring)
+                            rings.append(next_ring)
+                            print("a")
+                        else:
+                            print("W")
 
                 if len(ring_b)!=0:
                     sub_rings = [ring_b]
                     while sub_rings:
-                        ring = []
-                        for vert in sub_rings.pop():
-                            if vert is not None:
-                                v = next_vert(vert,False)
-                                if v is not None:
-                                    ring.append(v)
-                        if len(ring):
-                            sub_rings.append(ring)
-                            rings.insert(0,ring)
+                        sub_ring = sub_rings.pop()
+                        next_ring = get_next_ring(sub_ring[0]) if len(sub_ring) else None
+                        if next_ring is not None:
+                            sub_rings.append(next_ring)
+                            rings.insert(0,next_ring)
+                            print("b")
+                        else:
+                            print("L")
+
                 points = [[],[]]
                 for ring in rings :
                     average_loc = [0,0,0]
