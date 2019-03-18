@@ -24,8 +24,9 @@ class ICYP_OT_edge_to_bone(bpy.types.Operator):
     
     by_ring_select : bpy.props.BoolProperty(default = False)
     reverse : bpy.props.BoolProperty(default = False)
-    skip : bpy.props.IntProperty(default = 0)
-    with_root_bone : bpy.props.BoolProperty(default = False)
+    skip : bpy.props.IntProperty(default = 0,min = 0)
+    with_root_bone: bpy.props.BoolProperty(default=False)
+    add_leaf_bone : bpy.props.BoolProperty(default=False)
     with_auto_weight : bpy.props.BoolProperty(default = False)
     def execute(self,context):   
         mesh_obj = context.active_object
@@ -69,7 +70,6 @@ class ICYP_OT_edge_to_bone(bpy.types.Operator):
 
 
         edge_points_list = []
-        #TODO 実装
         if self.by_ring_select:
             
             def link_verts(vert):
@@ -148,15 +148,19 @@ class ICYP_OT_edge_to_bone(bpy.types.Operator):
             if self.reverse:
                 for points in points_list:
                     points[0].reverse()
-            edge_points_list = [[(point,points[1]) for point in points[0][0::self.skip+1]] for points in points_list]
-
+            edge_points_list = [[(point, points[1]) for point in points[0][0::self.skip + 1]] for points in points_list]
+            for points,edge_points in zip(points_list,edge_points_list):
+                if (len(points[0])-1) % (self.skip+1) != 0:
+                    edge_points.append((points[0][-1],points[1]))
         else:
             if self.reverse:
                 for group_verts in group_verts_list:
                     group_verts.reverse()
             #coは参照になるからコピーしないと落ちる
-            edge_points_list = [[(vert.co[:],(vert.index,))  for vert in group_verts[0::self.skip+1]] for group_verts in group_verts_list]
-
+            edge_points_list = [[(vert.co[:], (vert.index,)) for vert in group_verts[0::self.skip + 1]] for group_verts in group_verts_list]
+            for group_verts,edge_points in zip(group_verts_list,edge_points_list):
+                if (len(group_verts)-1) % (self.skip+1) != 0:
+                    edge_points.append((group_verts[-1].co[:],(group_verts[-1].index,)))
         
         #make armature
         bpy.ops.object.mode_set(mode='OBJECT')
@@ -177,9 +181,9 @@ class ICYP_OT_edge_to_bone(bpy.types.Operator):
             last_bone = None
             head = point_pos_id_tuples.pop(0)
             isFirst = True
-            vert_indexies = [id for _,ids in point_pos_id_tuples for id in ids]
+            vert_indexies = [_id for _,ids in point_pos_id_tuples for _id in ids]
             bone_names = []
-            while len(point_pos_id_tuples)>=1:
+            while len(point_pos_id_tuples)!=0:
                 tail = point_pos_id_tuples.pop(0)
                 b = armature.data.edit_bones.new("bone")
                 bone_names.append(b.name)
@@ -194,7 +198,11 @@ class ICYP_OT_edge_to_bone(bpy.types.Operator):
                 last_bone = b
                 head = tail[:]
             vert_id_bone_name_unionflag_tuple_list.append([vert_indexies,bone_names,False])
-            
+            if self.add_leaf_bone:
+                b = armature.data.edit_bones.new("bone")
+                b.head = last_bone.tail
+                b.tail = [last_bone.tail[n] + [last_bone.tail[i] - last_bone.head[i] for i in range(3)][n] for n in range(3)]
+                b.parent = last_bone
         bpy.ops.object.mode_set(mode='OBJECT')
         bpy.context.object.update_from_editmode()
         armature.scale = mesh_obj.scale[:]
