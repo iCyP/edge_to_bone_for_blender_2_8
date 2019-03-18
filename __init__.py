@@ -2,7 +2,7 @@ import bpy,bmesh
 import math
 import os,re
 bl_info = {
-    "name":"make bones from selected edge",
+    "name":"Edge to Bone for blender2.8",
     "author": "iCyP",
     "version": (0, 1),
     "blender": (2, 80, 0),
@@ -12,7 +12,7 @@ bl_info = {
     "support": "TESTING",
     "wiki_url": "",
     "tracker_url": "",
-    "category": "Object"
+    "category": "Rigging"
 }
 
 
