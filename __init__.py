@@ -205,44 +205,46 @@ class ICYP_OT_edge_to_bone(bpy.types.Operator):
         if self.with_auto_weight:
             mesh_obj = bpy.data.objects[mesh_obj.name]
             for i,vert_id_bone_name_tuple in enumerate(vert_id_bone_name_unionflag_tuple_list):
-                vert_ids,bone_names,already_unioned = vert_id_bone_name_tuple
-                #mesh select
-                context.view_layer.objects.active = mesh_obj
-                bpy.ops.object.mode_set(mode='EDIT')
-                bpy.ops.mesh.select_all(action="DESELECT")
+                vert_ids, bone_names, already_unioned = vert_id_bone_name_tuple
                 if already_unioned:
                     continue
+                #mesh select
+                context.view_layer.objects.active = mesh_obj  
+                bpy.ops.object.mode_set(mode='OBJECT')
+                bpy.ops.object.mode_set(mode='EDIT')        
+                bpy.ops.mesh.select_all(action="DESELECT")
+                bpy.ops.object.mode_set(mode='OBJECT')
+                #data.verts[id].selectはobj modeでしか機能しない
                 for vid in vert_ids:
                     mesh_obj.data.vertices[vid].select = True
-                bpy.ops.mesh.select_linked()
+                bpy.ops.object.mode_set(mode='EDIT')
+                bpy.ops.mesh.select_linked() 
+                bpy.ops.object.mode_set(mode='OBJECT')
                 selected_verts = [vert.index for vert in mesh_obj.data.vertices if vert.select]
-                same_group = []
+                same_group_bone_names = []
                 for i,vibnt in enumerate(vert_id_bone_name_unionflag_tuple_list):
-                    vids,bnames,already_union = vibnt
+                    vids,sub_bone_names,already_union = vibnt
                     if already_union:
                         continue
                     for vid in vids:
                         if vid in selected_verts:
-                            same_group.append((vids,bone_names))
                             vert_id_bone_name_unionflag_tuple_list[i][2] = True
+                            same_group_bone_names.extend(sub_bone_names)
                             break
-                for vids,_ in same_group:
-                    for vid in vids:
-                        mesh_obj.data.vertices[vid].select = True
-                bpy.ops.mesh.select_linked()
+
                 #bone select
                 bpy.ops.object.mode_set(mode='OBJECT')
                 context.view_layer.objects.active = bpy.data.objects[armature.name]
                 armature = bpy.data.objects[armature.name]
                 bpy.ops.object.mode_set(mode='POSE')
-                bpy.ops.pose.select_all(action = "DESELECT")
+                bpy.ops.pose.select_all(action="DESELECT")
                 for bone_name in bone_names:
                     armature.data.bones[bone_name].select = True
-                for _,link_bone_names,_ in vert_id_bone_name_unionflag_tuple_list:       
-                    for bone_name in link_bone_names:
-                        armature.data.bones[bone_name].select = True
+                for sgbn in same_group_bone_names:       
+                    armature.data.bones[sgbn].select = True
                 if root_bone is not None:
                     armature.data.bones[root_bone.name].select = False
+
                 #weight paint
                 bpy.ops.object.mode_set(mode='OBJECT')
                 bpy.context.scene.update()
@@ -250,15 +252,19 @@ class ICYP_OT_edge_to_bone(bpy.types.Operator):
                 bpy.data.objects[mesh_obj.name].select_set(True)
                 bpy.context.view_layer.objects.active = mesh_obj
                 bpy.ops.object.mode_set(mode='WEIGHT_PAINT')
+                bpy.context.object.data.use_paint_mask_vertex = True
                 bpy.ops.paint.weight_from_bones()
                 bpy.ops.object.mode_set(mode='OBJECT')
 
         bpy.ops.object.mode_set(mode='OBJECT')
+        #bone消失対策
         context.view_layer.objects.active = armature
-        bpy.ops.object.mode_set(mode='EDIT')
+        bpy.ops.object.mode_set(mode='EDIT') 
         bpy.ops.object.mode_set(mode='OBJECT')
+        #元に戻す
         context.view_layer.objects.active = mesh_obj
         bpy.ops.object.mode_set(mode='EDIT')
+        bpy.ops.mesh.select_all(action="DESELECT")
 
         return {'FINISHED'}
     
