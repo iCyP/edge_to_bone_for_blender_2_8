@@ -75,8 +75,8 @@ class ICYP_OT_edge_to_bone(bpy.types.Operator):
             def link_verts(vert):
                 return [lv for le in vert.link_edges for lv in le.verts]
 
-            already_sampled_verts = []
-            def get_next_ring(vert):
+            already_sampled_verts = set()
+            def get_next_ring(vert,already_sampled_verts):
                 next_ring = []
                 current_vert = None
                 for v in link_verts(vert):
@@ -100,16 +100,16 @@ class ICYP_OT_edge_to_bone(bpy.types.Operator):
                             else:
                                 break
 
-                already_sampled_verts.extend(next_ring)
-                return next_ring if len(next_ring)>0 else None
+                already_sampled_verts = already_sampled_verts.union(next_ring)
+                return (next_ring,already_sampled_verts) if len(next_ring)>0 else (None,already_sampled_verts)
                                     
 
             points_list = []
             for group_verts in group_verts_list:
                 rings = []
-                already_sampled_verts.extend(group_verts)
-                ring_a = get_next_ring(group_verts[0])
-                ring_b = get_next_ring(group_verts[0])
+                already_sampled_verts = already_sampled_verts.union(group_verts)
+                ring_a,already_sampled_verts = get_next_ring(group_verts[0],already_sampled_verts)
+                ring_b,already_sampled_verts = get_next_ring(group_verts[0],already_sampled_verts)
                 if ring_a is not None:
                     rings.append(ring_b)
                 rings.append(group_verts)
@@ -120,7 +120,7 @@ class ICYP_OT_edge_to_bone(bpy.types.Operator):
                     sub_rings= [ring_a]
                     while sub_rings:
                         sub_ring = sub_rings.pop()
-                        next_ring = get_next_ring(sub_ring[0]) if len(sub_ring) else None
+                        next_ring,already_sampled_verts = get_next_ring(sub_ring[0],already_sampled_verts) if len(sub_ring) else None
                         if next_ring is not None:
                             sub_rings.append(next_ring)
                             rings.append(next_ring)
@@ -129,7 +129,7 @@ class ICYP_OT_edge_to_bone(bpy.types.Operator):
                     sub_rings = [ring_b]
                     while sub_rings:
                         sub_ring = sub_rings.pop()
-                        next_ring = get_next_ring(sub_ring[0]) if len(sub_ring) else None
+                        next_ring,already_sampled_verts = get_next_ring(sub_ring[0],already_sampled_verts) if len(sub_ring) else None
                         if next_ring is not None:
                             sub_rings.append(next_ring)
                             rings.insert(0,next_ring)
