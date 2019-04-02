@@ -145,6 +145,12 @@ class ICYP_OT_edge_to_bone(bpy.types.Operator):
                     points[1] = [v.index for v in ring if v is not None]
                 points_list.append(points)
 
+            #sort by length from origin
+            for points in points_list:
+                head = points[0][0][0]** 2 + points[0][0][1]** 2 + points[0][0][2]** 2
+                tail = points[0][-1][0]** 2 + points[0][-1][1]** 2 + points[0][-1][2]** 2
+                if head > tail:
+                    points[0].reverse()
             if self.reverse:
                 for points in points_list:
                     points[0].reverse()
@@ -153,6 +159,12 @@ class ICYP_OT_edge_to_bone(bpy.types.Operator):
                 if (len(points[0])-1) % (self.skip+1) != 0:
                     edge_points.append((points[0][-1],points[1]))
         else:
+            #sort by length from origin
+            for group_verts in group_verts_list:
+                head = group_verts[0].co[0]**2+ group_verts[0].co[1]**2+ group_verts[0].co[2]**2
+                tail = group_verts[-1].co[0]** 2 + group_verts[-1].co[1]** 2 + group_verts[-1].co[2]** 2
+                if head > tail:
+                    group_verts.reverse()
             if self.reverse:
                 for group_verts in group_verts_list:
                     group_verts.reverse()
