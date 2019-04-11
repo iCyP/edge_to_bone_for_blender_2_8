@@ -176,7 +176,9 @@ class ICYP_OT_edge_to_bone(bpy.types.Operator):
         
         #make armature
         bpy.ops.object.mode_set(mode='OBJECT')
-        bpy.ops.object.add(type='ARMATURE', enter_editmode=True, location=mesh_obj.location,rotation=[xyz for xyz in mesh_obj.rotation_euler])
+        bpy.ops.object.add(type='ARMATURE', enter_editmode=True,\
+                            location=mesh_obj.matrix_world.translation,\
+                            rotation=mesh_obj.matrix_world.to_euler())
         armature = bpy.context.object
         armature.name = "bones"
         armature.show_in_front = True
