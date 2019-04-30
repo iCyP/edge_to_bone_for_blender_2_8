@@ -187,7 +187,8 @@ class ICYP_OT_edge_to_bone(bpy.types.Operator):
         if self.with_root_bone:
             root_bone = armature.data.edit_bones.new("root")
             root_bone.head = [0,0,0]
-            root_bone.tail = [0,0,0.1]
+            root_bone.tail = [0, 0, 0.1]
+            root_bone_name = root_bone.name
         else :
             root_bone = None
 
@@ -265,7 +266,7 @@ class ICYP_OT_edge_to_bone(bpy.types.Operator):
                 for sgbn in same_group_bone_names:       
                     armature.data.bones[sgbn].select = True
                 if root_bone is not None:
-                    armature.data.bones[root_bone.name].select = False
+                    armature.data.bones[root_bone_name].select = False
 
                 #weight paint
                 bpy.ops.object.mode_set(mode='OBJECT')
