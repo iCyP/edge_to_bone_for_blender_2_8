@@ -270,7 +270,10 @@ class ICYP_OT_edge_to_bone(bpy.types.Operator):
 
                 #weight paint
                 bpy.ops.object.mode_set(mode='OBJECT')
-                bpy.context.scene.update()
+                if "update" in dir(bpy.context.scene):
+                    bpy.context.scene.update()
+                else :
+                    bpy.context.scene.view_layers.update()
                 bpy.data.objects[armature.name].select_set(True)
                 bpy.data.objects[mesh_obj.name].select_set(True)
                 bpy.context.view_layer.objects.active = mesh_obj
