@@ -15,6 +15,10 @@ bl_info = {
     "category": "Rigging"
 }
 
+def get_armatures(scene,context):
+    arms = [("empty_empty","empty","")]
+    arms.extend([(obj.name,obj.name,"") for obj in bpy.data.objects if obj.type == "ARMATURE"])
+    return arms
 
 class ICYP_OT_edge_to_bone(bpy.types.Operator):
     bl_idname = "object.icyp_edge_to_bone"
@@ -22,12 +26,31 @@ class ICYP_OT_edge_to_bone(bpy.types.Operator):
     bl_description = "-------"
     bl_options = {'REGISTER', 'UNDO'}
     
+    
+
+    def set_bone_enum(self,context):
+        if self.target_armature not in (None,"") :
+            bone_enum =  [(bone.name,bone.name,"") for bone in bpy.data.objects[self.target_armature].data.bones]
+        else:
+            bone_enum = [("example_ICYP_value","","")]
+        return bone_enum
     by_ring_select : bpy.props.BoolProperty(default = False)
     reverse : bpy.props.BoolProperty(default = False)
     skip : bpy.props.IntProperty(default = 0,min = 0)
     with_root_bone: bpy.props.BoolProperty(default=False)
+    target_armature : bpy.props.EnumProperty(
+        name = "edge_to_bone_target_armature",
+        description = "target_armature",
+        items = get_armatures
+        )
+    target_root_bone : bpy.props.EnumProperty(
+        name = "edge_to_bone_target_bone",
+        description = "target_root_bone",
+        items = set_bone_enum
+        )
     add_leaf_bone : bpy.props.BoolProperty(default=False)
     with_auto_weight : bpy.props.BoolProperty(default = False)
+
     def execute(self,context):   
         mesh_obj = context.active_object
         bm = bmesh.from_edit_mesh(mesh_obj.data)
@@ -175,20 +198,30 @@ class ICYP_OT_edge_to_bone(bpy.types.Operator):
                     edge_points.append((group_verts[-1].co[:],(group_verts[-1].index,)))
         
         #make armature
-        bpy.ops.object.mode_set(mode='OBJECT')
-        bpy.ops.object.add(type='ARMATURE', enter_editmode=True,\
-                            location=mesh_obj.matrix_world.translation,\
-                            rotation=mesh_obj.matrix_world.to_euler())
-        armature = bpy.context.object
-        armature.name = "bones"
-        armature.show_in_front = True
+        if self.target_armature == "empty_empty":
+            bpy.ops.object.mode_set(mode='OBJECT')
+            bpy.ops.object.add(type='ARMATURE', enter_editmode=True,\
+                                location=mesh_obj.matrix_world.translation,\
+                                rotation=mesh_obj.matrix_world.to_euler())
+            armature = bpy.context.object
+            armature.name = "bones"
+            armature.show_in_front = True
+        else:
+            armature = bpy.data.objects[self.target_armature]
+            bpy.ops.object.mode_set(mode='OBJECT')
+            bpy.context.view_layer.objects.active = armature
+            bpy.ops.object.mode_set(mode='EDIT')
         vert_id_bone_name_unionflag_tuple_list = []
         
         if self.with_root_bone:
-            root_bone = armature.data.edit_bones.new("root")
-            root_bone.head = [0,0,0]
-            root_bone.tail = [0, 0, 0.1]
-            root_bone_name = root_bone.name
+            if self.target_armature != "empty_empty":
+                root_bone = bpy.data.objects[self.target_armature].data.edit_bones[self.target_root_bone]
+                root_bone_name = root_bone.name
+            else:
+                root_bone = armature.data.edit_bones.new("root")
+                root_bone.head = [0,0,0]
+                root_bone.tail = [0, 0, 0.1]
+                root_bone_name = root_bone.name
         else :
             root_bone = None
 
@@ -306,11 +339,11 @@ def add_button(self, context):
 def register():
     for cls in classes:
         bpy.utils.register_class(cls)
-    bpy.types.VIEW3D_MT_edit_mesh_edges.append(add_button)
+    bpy.types.VIEW3D_MT_edit_mesh_context_menu.append(add_button)
     
 # アドオン無効化時の処理
 def unregister():
-    bpy.types.VIEW3D_MT_edit_mesh_edges.remove(add_button)
+    bpy.types.VIEW3D_MT_edit_mesh_context_menu.remove(add_button)
     for cls in classes:
         bpy.utils.unregister_class(cls)
 
